@@ -12,6 +12,7 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.InputStream;
@@ -23,8 +24,8 @@ public class MainActivity extends AppCompatActivity {
 
     // 定义 TAG 变量
     private static final String TAG = "MainActivity";
-    private String serverIp = "192.168.1.1";  // 替换为服务端IP
-    private int serverPort = 12345;  // 替换为服务端端口
+    private String serverIp = "192.168.182.128";  // 替换为服务端IP
+    private int serverPort = 12347;  // 替换为服务端端口
     private GLSurfaceView glSurfaceView;
     private PlyRenderer plyRenderer;
 
@@ -39,21 +40,56 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
+                    Log.d(TAG, "尝试连接到服务器: " + serverIp + ":" + serverPort);
                     Socket socket = new Socket(serverIp, serverPort);
+                    Log.d(TAG, "成功连接到服务器");
                     DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
                     // 读取数据长度（例如先读取一个int来表示数据大小）
                     int dataLength = dataInputStream.readInt();
+                    dataLength = Integer.reverseBytes(dataLength);
+                    Log.d(TAG, "读取到的数据长度: " + dataLength);
                     byte[] compressedData = new byte[dataLength];
+                    int bytesRead = 0;
+                    // 接收压缩后的
+                    try {
+                        while (bytesRead < dataLength) {
+                            // 计算剩余数据长度
+                            int remaining = dataLength - bytesRead;
+                            // 每次读取最大 1024 字节（可以根据情况调整缓冲区大小）
+                            int chunkSize = Math.min(remaining, 1024);
+                            int read = dataInputStream.read(compressedData, bytesRead, chunkSize);
 
-                    // 接收压缩后的数据
-                    dataInputStream.readFully(compressedData);
+                            if (read == -1) {
+                                throw new IOException("服务器连接关闭，无法接收数据");
+                            }
+
+                            bytesRead += read;
+                            Log.d(TAG, "已接收 " + bytesRead + " 字节，剩余 " + (dataLength - bytesRead) + " 字节");
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        Log.d(TAG, "数据接收失败: " + e.getMessage());
+                    }
+
+
+                    Log.d(TAG, "成功接收压缩后的数据");
 
                     // 解压数据
+
+                    Log.d(TAG, "开始解压数据");
                     DracoDecoder decoder = new DracoDecoder();
                     byte[] decodedData = decoder.decodeDraco(compressedData);
+                    Log.d(TAG, "decodedData size: " + decodedData.length);
                     ArrayList<Float> plyVertices = loadPlyData(decodedData);
-
+                    // 打印最终的 vertices 值
+            Log.d(TAG, "Vertices size: " + plyVertices.size());
+            for (int i = 0; i < plyVertices.size(); i += 3) {
+                float x = plyVertices.get(i);
+                float y = plyVertices.get(i + 1);
+                float z = plyVertices.get(i + 2);
+                Log.d(TAG, "Vertex [" + (i / 3) + "]: x=" + x + ", y=" + y + ", z=" + z);
+            }
                     // 更新UI，准备渲染数据
                     runOnUiThread(new Runnable() {
                         @Override
