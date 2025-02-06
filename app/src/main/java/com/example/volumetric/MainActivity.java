@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
                             }
 
                             bytesRead += read;
-                            Log.d(TAG, "已接收 " + bytesRead + " 字节，剩余 " + (dataLength - bytesRead) + " 字节");
+                            //Log.d(TAG, "已接收 " + bytesRead + " 字节，剩余 " + (dataLength - bytesRead) + " 字节");
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -80,6 +80,10 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "开始解压数据");
                     DracoDecoder decoder = new DracoDecoder();
                     byte[] decodedData = decoder.decodeDraco(compressedData);
+//                    // 打印部分解压后的 PLY 数据内容（例如打印前1000个字节）
+//                    int bytesToPrint = Math.min(1000, decodedData.length);
+//                    String decodedDataString = new String(decodedData, 0, bytesToPrint);  // 转换为字符串
+//                    Log.d(TAG, "Decoded Data (first " + bytesToPrint + " bytes): " + decodedDataString);
                     Log.d(TAG, "decodedData size: " + decodedData.length);
                     ArrayList<Float> plyVertices = loadPlyData(decodedData);
                     // 打印最终的 vertices 值
@@ -167,35 +171,67 @@ public class MainActivity extends AppCompatActivity {
         try {
             // 使用 ByteArrayInputStream 从字节数组中读取数据
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(byteArrayInputStream));
+            DataInputStream dataInputStream = new DataInputStream(byteArrayInputStream);
+
             String line;
             boolean isHeader = true;
-            while ((line = reader.readLine()) != null) {
-                if (isHeader) {
-                    if (line.contains("end_header")) {
-                        isHeader = false; // 头部结束，开始读取数据
-                    }
-                } else {
-                    String[] tokens = line.trim().split(" ");
-                    if (tokens.length >= 3) {
-                        // 只读取前3个数，作为顶点坐标
-                        vertices.add(Float.parseFloat(tokens[0])); // x
-                        vertices.add(Float.parseFloat(tokens[1])); // y
-                        vertices.add(Float.parseFloat(tokens[2])); // z
+            int vertexCount = 0;  // 用来存储顶点的数量
 
-                        // 读取颜色值，并规范化为 [0, 1] 范围
-                        vertices.add(Float.parseFloat(tokens[3]) / 255.0f); // red
-                        vertices.add(Float.parseFloat(tokens[4]) / 255.0f); // green
-                        vertices.add(Float.parseFloat(tokens[5]) / 255.0f); // blue
-                    }
+            // 读取 PLY 文件的头部
+            while (isHeader) {
+                line = readLine(dataInputStream);
+                if (line == null) break;
+                if (line.contains("element vertex")) {
+                    // 获取顶点数
+                    String[] tokens = line.split(" ");
+                    vertexCount = Integer.parseInt(tokens[2]);
+                }
+                if (line.contains("end_header")) {
+                    isHeader = false;  // 头部结束，开始读取数据
                 }
             }
-            reader.close();
+
+            Log.d(TAG, "vertexCount " + vertexCount);
+            // 读取顶点数据部分
+            for (int i = 0; i < vertexCount; i++) {
+                // 读取每个顶点的 X, Y, Z 和颜色值
+                float x = dataInputStream.readFloat();
+                float y = dataInputStream.readFloat();
+                float z = dataInputStream.readFloat();
+
+                // 读取颜色值并规范化为 [0, 1] 范围
+                int r = dataInputStream.readByte() & 0xFF;  // 读取字节并转换为 0-255 范围
+                int g = dataInputStream.readByte() & 0xFF;
+                int b = dataInputStream.readByte() & 0xFF;
+
+                // 将顶点数据和颜色信息添加到列表
+                vertices.add(x);
+                vertices.add(y);
+                vertices.add(z);
+                vertices.add(r / 255.0f);  // 红色通道归一化
+                vertices.add(g / 255.0f);  // 绿色通道归一化
+                vertices.add(b / 255.0f);  // 蓝色通道归一化
+            }
+
+            dataInputStream.close();
 
         } catch (IOException e) {
             e.printStackTrace();
             Toast.makeText(this, "Failed to load PLY file", Toast.LENGTH_LONG).show();
         }
         return vertices;
+    }
+
+    // 辅助方法，用于读取每一行（仅为头部解析时使用）
+    private String readLine(DataInputStream dataInputStream) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        int c;
+        while ((c = dataInputStream.read()) != -1) {
+            if (c == '\n') {
+                break;
+            }
+            sb.append((char) c);
+        }
+        return sb.length() > 0 ? sb.toString() : null;
     }
 }
