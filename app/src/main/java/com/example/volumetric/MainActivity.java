@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
     // 定义 TAG 变量
     private static final String TAG = "MainActivity";
     private String serverIp = "192.168.182.128";  // 替换为服务端IP
-    private int serverPort = 12347;  // 替换为服务端端口
+    private int serverPort = 12348;  // 替换为服务端端口
     private GLSurfaceView glSurfaceView;
     private PlyRenderer plyRenderer;
 
@@ -84,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
 //                    int bytesToPrint = Math.min(1000, decodedData.length);
 //                    String decodedDataString = new String(decodedData, 0, bytesToPrint);  // 转换为字符串
 //                    Log.d(TAG, "Decoded Data (first " + bytesToPrint + " bytes): " + decodedDataString);
-                    Log.d(TAG, "decodedData size: " + decodedData.length);
+//                    Log.d(TAG, "decodedData size: " + decodedData.length);
                     ArrayList<Float> plyVertices = loadPlyData(decodedData);
                     // 打印最终的 vertices 值
             Log.d(TAG, "Vertices size: " + plyVertices.size());
@@ -115,10 +115,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }).start();
-        plyRenderer = new PlyRenderer(loadPlyData("longdress_vox10_1051.ply"));
-        glSurfaceView.setRenderer(plyRenderer);
-
-        setContentView(glSurfaceView);
+//        plyRenderer = new PlyRenderer(loadPlyData("longdress_vox10_1051.ply"));
+//        glSurfaceView.setRenderer(plyRenderer);
+//
+//        setContentView(glSurfaceView);
     }
 
     // 测试函数：读取PLY文件中的顶点数据
@@ -150,22 +150,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             reader.close();
-
-            // 打印最终的 vertices 值
-//            Log.d(TAG, "Vertices size: " + vertices.size());
-//            for (int i = 0; i < vertices.size(); i += 3) {
-//                float x = vertices.get(i);
-//                float y = vertices.get(i + 1);
-//                float z = vertices.get(i + 2);
-//                Log.d(TAG, "Vertex [" + (i / 3) + "]: x=" + x + ", y=" + y + ", z=" + z);
-//            }
-
         } catch (IOException e) {
             e.printStackTrace();
             Toast.makeText(this, "Failed to load PLY file", Toast.LENGTH_LONG).show();
         }
         return vertices;
     }
+
     private ArrayList<Float> loadPlyData(byte[] byteArray) {
         ArrayList<Float> vertices = new ArrayList<>();
         try {
@@ -195,9 +186,9 @@ public class MainActivity extends AppCompatActivity {
             // 读取顶点数据部分
             for (int i = 0; i < vertexCount; i++) {
                 // 读取每个顶点的 X, Y, Z 和颜色值
-                float x = dataInputStream.readFloat();
-                float y = dataInputStream.readFloat();
-                float z = dataInputStream.readFloat();
+                float x = readFloatLittleEndian(dataInputStream);
+                float y = readFloatLittleEndian(dataInputStream);
+                float z = readFloatLittleEndian(dataInputStream);
 
                 // 读取颜色值并规范化为 [0, 1] 范围
                 int r = dataInputStream.readByte() & 0xFF;  // 读取字节并转换为 0-255 范围
@@ -222,7 +213,7 @@ public class MainActivity extends AppCompatActivity {
         return vertices;
     }
 
-    // 辅助方法，用于读取每一行（仅为头部解析时使用）
+    // 辅助方法
     private String readLine(DataInputStream dataInputStream) throws IOException {
         StringBuilder sb = new StringBuilder();
         int c;
@@ -233,5 +224,16 @@ public class MainActivity extends AppCompatActivity {
             sb.append((char) c);
         }
         return sb.length() > 0 ? sb.toString() : null;
+    }
+    private float readFloatLittleEndian(DataInputStream dataInputStream) throws IOException {
+        // 读取4个字节
+        byte[] bytes = new byte[4];
+        dataInputStream.readFully(bytes);
+
+        // 将字节数组从小端转换为大端
+        int intBits = (bytes[0] & 0xFF) | ((bytes[1] & 0xFF) << 8) | ((bytes[2] & 0xFF) << 16) | ((bytes[3] & 0xFF) << 24);
+
+        // 将整数转换为 float
+        return Float.intBitsToFloat(intBits);
     }
 }
