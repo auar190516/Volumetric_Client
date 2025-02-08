@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "成功连接到服务器");
                     DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
-                    // 读取数据长度（例如先读取一个int来表示数据大小）
+                    // 读取数据长度
                     int dataLength = dataInputStream.readInt();
                     dataLength = Integer.reverseBytes(dataLength);
                     Log.d(TAG, "读取到的数据长度: " + dataLength);
@@ -56,13 +56,13 @@ public class MainActivity extends AppCompatActivity {
                         while (bytesRead < dataLength) {
                             // 计算剩余数据长度
                             int remaining = dataLength - bytesRead;
-                            // 每次读取最大 1024 字节（可以根据情况调整缓冲区大小）
+                            // 每次读取最大 4096 字节（可以根据情况调整缓冲区大小）
                             int chunkSize = Math.min(remaining, 1024);
                             int read = dataInputStream.read(compressedData, bytesRead, chunkSize);
 
-                            if (read == -1) {
-                                throw new IOException("服务器连接关闭，无法接收数据");
-                            }
+                            //if (read == -1) {
+                            //    throw new IOException("服务器连接关闭，无法接收数据");
+                            //}
 
                             bytesRead += read;
                             //Log.d(TAG, "已接收 " + bytesRead + " 字节，剩余 " + (dataLength - bytesRead) + " 字节");
@@ -87,19 +87,20 @@ public class MainActivity extends AppCompatActivity {
 //                    Log.d(TAG, "decodedData size: " + decodedData.length);
                     ArrayList<Float> plyVertices = loadPlyData(decodedData);
                     // 打印最终的 vertices 值
-            Log.d(TAG, "Vertices size: " + plyVertices.size());
-            for (int i = 0; i < plyVertices.size(); i += 3) {
-                float x = plyVertices.get(i);
-                float y = plyVertices.get(i + 1);
-                float z = plyVertices.get(i + 2);
-                Log.d(TAG, "Vertex [" + (i / 3) + "]: x=" + x + ", y=" + y + ", z=" + z);
-            }
+//            Log.d(TAG, "Vertices size: " + plyVertices.size());
+//            for (int i = 0; i < plyVertices.size(); i += 3) {
+//                float x = plyVertices.get(i);
+//                float y = plyVertices.get(i + 1);
+//                float z = plyVertices.get(i + 2);
+//                Log.d(TAG, "Vertex [" + (i / 3) + "]: x=" + x + ", y=" + y + ", z=" + z);
+//            }
                     // 更新UI，准备渲染数据
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             plyRenderer = new PlyRenderer(plyVertices);
                             glSurfaceView.setRenderer(plyRenderer);
+                            setContentView(glSurfaceView);
                         }
                     });
 
@@ -118,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
 //        plyRenderer = new PlyRenderer(loadPlyData("longdress_vox10_1051.ply"));
 //        glSurfaceView.setRenderer(plyRenderer);
 //
-//        setContentView(glSurfaceView);
+
     }
 
     // 测试函数：读取PLY文件中的顶点数据
