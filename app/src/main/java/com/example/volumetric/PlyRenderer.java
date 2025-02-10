@@ -42,14 +42,17 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
     private float[] projectionMatrix = new float[16];
     private float[] viewMatrix = new float[16];
     private float[] mvpMatrix = new float[16];
+    // 用于控制帧的渲染
+    private long lastFrameTime = 0;
+    public PlyRenderer() {
+    }
 
-
-    public PlyRenderer(ArrayList<Float> plyVertices) {
+    public void updateData(ArrayList<Float> plyVertices) {
+        // 将新的顶点和颜色数据更新到当前渲染数据
         int vertexIndex = 0;
         int colorIndex = 0;
-        // Convert ArrayList to array
-        vertices = new float[plyVertices.size() / 6 * 3]; // 只保留x, y, z作为顶点坐标
-        colors = new float[plyVertices.size() / 6 * 3];   // 只保留red, green, blue作为颜色
+        vertices = new float[plyVertices.size() / 6 * 3];
+        colors = new float[plyVertices.size() / 6 * 3];
 
         for (int i = 0; i < plyVertices.size(); i++) {
             if (i % 6 < 3) {
@@ -67,25 +70,23 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
                         break;
                 }
             } else {
-                colors[colorIndex++] = plyVertices.get(i); // 将颜色值从 0 - 255 归一化到 0 - 1
+                colors[colorIndex++] = plyVertices.get(i);
             }
         }
 
-        // 准备顶点缓冲区
+        // 将数据放入顶点缓冲区和颜色缓冲区
         ByteBuffer bb = ByteBuffer.allocateDirect(vertices.length * 4);
         bb.order(ByteOrder.nativeOrder());
         vertexBuffer = bb.asFloatBuffer();
         vertexBuffer.put(vertices);
         vertexBuffer.position(0);
 
-        // 准备颜色缓冲区
         ByteBuffer cb = ByteBuffer.allocateDirect(colors.length * 4);
         cb.order(ByteOrder.nativeOrder());
         colorBuffer = cb.asFloatBuffer();
         colorBuffer.put(colors);
         colorBuffer.position(0);
     }
-
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Set background color
@@ -119,30 +120,40 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onDrawFrame(GL10 gl) {
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+        long currentTime = System.currentTimeMillis();
 
-        // 使用程序
-        GLES20.glUseProgram(program);
+        // 每5秒接收并渲染一帧
+        if (currentTime - lastFrameTime >= 5000) {
+            lastFrameTime = currentTime;
 
-        // 获取位置和颜色属性的句柄
-        int positionHandle = GLES20.glGetAttribLocation(program, "vPosition");
-        int colorHandle = GLES20.glGetAttribLocation(program, "aColor");
-        int mvpMatrixHandle = GLES20.glGetUniformLocation(program, "uMVPMatrix");
+            // 如果有新的数据，更新顶点和颜色
+            if (vertices.length > 0 && colors.length > 0) {
+                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
-        // 设置MVP矩阵
-        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0);
-        GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0);
+                // 使用程序
+                GLES20.glUseProgram(program);
 
-        // 传递顶点坐标到着色器
-        GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
-        GLES20.glEnableVertexAttribArray(positionHandle);
+                // 获取位置和颜色属性的句柄
+                int positionHandle = GLES20.glGetAttribLocation(program, "vPosition");
+                int colorHandle = GLES20.glGetAttribLocation(program, "aColor");
+                int mvpMatrixHandle = GLES20.glGetUniformLocation(program, "uMVPMatrix");
 
-        // 传递颜色数据到着色器
-        GLES20.glVertexAttribPointer(colorHandle, 3, GLES20.GL_FLOAT, false, 0, colorBuffer);
-        GLES20.glEnableVertexAttribArray(colorHandle);
+                // 设置MVP矩阵
+                Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0);
+                GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0);
 
-        // 绘制顶点
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, vertices.length / 3);
+                // 传递顶点坐标到着色器
+                GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+                GLES20.glEnableVertexAttribArray(positionHandle);
+
+                // 传递颜色数据到着色器
+                GLES20.glVertexAttribPointer(colorHandle, 3, GLES20.GL_FLOAT, false, 0, colorBuffer);
+                GLES20.glEnableVertexAttribArray(colorHandle);
+
+                // 绘制顶点
+                GLES20.glDrawArrays(GLES20.GL_POINTS, 0, vertices.length / 3);
+            }
+        }
     }
 
 
