@@ -9,8 +9,10 @@ import java.nio.FloatBuffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import android.opengl.Matrix;
+import android.util.Log;
 
 public class PlyRenderer implements GLSurfaceView.Renderer {
+    private static final String TAG = "plyRenderer";
     private static final float SCALE = 0.179523f;
     private static final float TRANSLATE_X = -45.2095f;
     private static final float TRANSLATE_Y = 7.18301f;
@@ -44,6 +46,7 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
     private float[] mvpMatrix = new float[16];
     // 用于控制帧的渲染
     private long lastFrameTime = 0;
+    private boolean dataupdated = false;
     public PlyRenderer() {
     }
 
@@ -86,6 +89,8 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
         colorBuffer = cb.asFloatBuffer();
         colorBuffer.put(colors);
         colorBuffer.position(0);
+        Log.d(TAG, "更新数据： " + vertices.length);
+        dataupdated = true;
     }
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
@@ -110,8 +115,8 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
             throw new RuntimeException("Program linking error: " + infoLog);
         }
         // Setup projection matrix
-//        Matrix.setIdentityM(projectionMatrix, 0);
-//        Matrix.perspectiveM(projectionMatrix, 0, 60.0f, 1.0f, 1.0f, 1000.0f);
+        Matrix.setIdentityM(projectionMatrix, 0);
+        Matrix.perspectiveM(projectionMatrix, 0, 60.0f, 1.0f, 1.0f, 1000.0f);
 
         // Setup view matrix (camera)
         Matrix.setIdentityM(viewMatrix, 0);
@@ -120,14 +125,14 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onDrawFrame(GL10 gl) {
-        long currentTime = System.currentTimeMillis();
-
+        if(!dataupdated)
+        {
+            return;
+        }
+        //long currentTime = System.currentTimeMillis();
         // 每5秒接收并渲染一帧
-        if (currentTime - lastFrameTime >= 5000) {
-            lastFrameTime = currentTime;
-
-            // 如果有新的数据，更新顶点和颜色
-            if (vertices.length > 0 && colors.length > 0) {
+//        if (currentTime - lastFrameTime >= 5000&&dataupdated) {
+//            lastFrameTime = currentTime;
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
                 // 使用程序
@@ -152,8 +157,9 @@ public class PlyRenderer implements GLSurfaceView.Renderer {
 
                 // 绘制顶点
                 GLES20.glDrawArrays(GLES20.GL_POINTS, 0, vertices.length / 3);
-            }
-        }
+            //dataupdated = false;
+        //}
+        dataupdated = false;
     }
 
 

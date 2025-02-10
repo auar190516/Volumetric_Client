@@ -85,22 +85,16 @@ public class MainActivity extends AppCompatActivity {
                         DracoDecoder decoder = new DracoDecoder();
                         byte[] decodedData = decoder.decodeDraco(compressedData);
                         ArrayList<Float> plyVertices = loadPlyData(decodedData);
-                        // 打印最终的 vertices 值
-//            Log.d(TAG, "Vertices size: " + plyVertices.size());
-//            for (int i = 0; i < plyVertices.size(); i += 3) {
-//                float x = plyVertices.get(i);
-//                float y = plyVertices.get(i + 1);
-//                float z = plyVertices.get(i + 2);
-//                Log.d(TAG, "Vertex [" + (i / 3) + "]: x=" + x + ", y=" + y + ", z=" + z);
-//            }
+                        Log.d(TAG, "更新UI，准备渲染数据");
                         // 更新UI，准备渲染数据
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 plyRenderer.updateData(plyVertices); // 更新点云数据
+                                Log.d(TAG, "更新点云数据");
                             }
                         });
-
+                        Log.d(TAG, "更新结束");
                         socket.close();
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -112,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
                         });
                     }
                     try {
-                        Thread.sleep(5000); // 等待5秒再请求
+                        Thread.sleep(60000); // 等待20秒再请求
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
