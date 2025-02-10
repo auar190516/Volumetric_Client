@@ -29,6 +29,8 @@ public class MainActivity extends AppCompatActivity {
     private GLSurfaceView glSurfaceView;
     private PlyRenderer plyRenderer;
     private volatile boolean isRunning = true;
+    Socket socket;
+    DataInputStream dataInputStream;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -42,72 +44,93 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                while (isRunning) {
-                    try {
-                        Log.d(TAG, "尝试连接到服务器: " + serverIp + ":" + serverPort);
-                        Socket socket = new Socket(serverIp, serverPort);
-                        Log.d(TAG, "成功连接到服务器");
-                        DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
-
-                        // 读取数据长度
-                        int dataLength = dataInputStream.readInt();
-                        dataLength = Integer.reverseBytes(dataLength);
-                        Log.d(TAG, "读取到的数据长度: " + dataLength);
-                        byte[] compressedData = new byte[dataLength];
-                        int bytesRead = 0;
-                        // 接收压缩后的
+                try {
+                    Log.d(TAG, "尝试连接到服务器: " + serverIp + ":" + serverPort);
+                    socket = new Socket(serverIp, serverPort);
+                    Log.d(TAG, "成功连接到服务器");
+                    dataInputStream = new DataInputStream(socket.getInputStream());
+                    while (isRunning) {
                         try {
-                            while (bytesRead < dataLength) {
-                                // 计算剩余数据长度
-                                int remaining = dataLength - bytesRead;
-                                // 每次读取最大 4096 字节（可以根据情况调整缓冲区大小）
-                                int chunkSize = Math.min(remaining, 1024);
-                                int read = dataInputStream.read(compressedData, bytesRead, chunkSize);
-
-                                if (read == -1) {
-                                    throw new IOException("服务器连接关闭，无法接收数据");
+                            // 读取数据长度
+                            int dataLength = dataInputStream.readInt();
+                            dataLength = Integer.reverseBytes(dataLength);
+                            Log.d(TAG, "读取到的数据长度: " + dataLength);
+                            byte[] compressedData = new byte[dataLength];
+                            int bytesRead = 0;
+                            // 接收压缩后的数据
+                            try {
+                                while (bytesRead < dataLength) {
+                                    // 计算剩余数据长度
+                                    int remaining = dataLength - bytesRead;
+                                    // 每次读取最大 4096 字节（可以根据情况调整缓冲区大小）
+                                    int chunkSize = Math.min(remaining, 1024);
+                                    int read = dataInputStream.read(compressedData, bytesRead, chunkSize);
+                                    if (read == -1) {
+                                        throw new IOException("服务器连接关闭，无法接收数据");
+                                    }
+                                    bytesRead += read;
                                 }
-
-                                bytesRead += read;
-                                //Log.d(TAG, "已接收 " + bytesRead + " 字节，剩余 " + (dataLength - bytesRead) + " 字节");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                Log.d(TAG, "数据接收失败: " + e.getMessage());
+                            }
+                            Log.d(TAG, "成功接收压缩后的数据");
+                            // 解压数据
+                            Log.d(TAG, "开始解压数据");
+                            DracoDecoder decoder = new DracoDecoder();
+                            byte[] decodedData = decoder.decodeDraco(compressedData);
+                            ArrayList<Float> plyVertices = loadPlyData(decodedData);
+                            Log.d(TAG, "更新UI，准备渲染数据");
+                            // 更新UI，准备渲染数据
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    plyRenderer.updateData(plyVertices); // 更新点云数据
+                                    Log.d(TAG, "更新点云数据");
+                                }
+                            });
+                            Log.d(TAG, "更新结束");
+                            try {
+                                Thread.sleep(20000); // 等待60秒再尝试重新连接
+                            } catch (InterruptedException ie) {
+                                ie.printStackTrace();
                             }
                         } catch (IOException e) {
                             e.printStackTrace();
-                            Log.d(TAG, "数据接收失败: " + e.getMessage());
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(MainActivity.this, "Failed to receive data from server", Toast.LENGTH_LONG).show();
+                                }
+                            });
+                            // 尝试重新连接
+                            try {
+                                socket.close();
+                                socket = new Socket(serverIp, serverPort);
+                                dataInputStream = new DataInputStream(socket.getInputStream());
+                            } catch (IOException re) {
+                                re.printStackTrace();
+
+                            }
                         }
-
-
-                        Log.d(TAG, "成功接收压缩后的数据");
-
-                        // 解压数据
-
-                        Log.d(TAG, "开始解压数据");
-                        DracoDecoder decoder = new DracoDecoder();
-                        byte[] decodedData = decoder.decodeDraco(compressedData);
-                        ArrayList<Float> plyVertices = loadPlyData(decodedData);
-                        Log.d(TAG, "更新UI，准备渲染数据");
-                        // 更新UI，准备渲染数据
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                plyRenderer.updateData(plyVertices); // 更新点云数据
-                                Log.d(TAG, "更新点云数据");
-                            }
-                        });
-                        Log.d(TAG, "更新结束");
-                        socket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Toast.makeText(MainActivity.this, "Failed to connect to server", Toast.LENGTH_LONG).show();
-                            }
-                        });
                     }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, "Failed to connect to server", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                } finally {
                     try {
-                        Thread.sleep(60000); // 等待20秒再请求
-                    } catch (InterruptedException e) {
+                        if (socket != null) {
+                            socket.close();
+                        }
+                        if (dataInputStream != null) {
+                            dataInputStream.close();
+                        }
+                    } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
@@ -116,7 +139,6 @@ public class MainActivity extends AppCompatActivity {
 //        plyRenderer = new PlyRenderer(loadPlyData("longdress_vox10_1051.ply"));
 //        glSurfaceView.setRenderer(plyRenderer);
 //
-
     }
 
     // 测试函数：读取PLY文件中的顶点数据
