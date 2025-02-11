@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
     // 定义 TAG 变量
     private static final String TAG = "MainActivity";
     private String serverIp = "192.168.182.128";  // 替换为服务端IP
-    private int serverPort = 12348;  // 替换为服务端端口
+    private int serverPort = 12349;  // 替换为服务端端口
     private GLSurfaceView glSurfaceView;
     private PlyRenderer plyRenderer;
     private volatile boolean isRunning = true;
@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
                             });
                             Log.d(TAG, "更新结束");
                             try {
-                                Thread.sleep(20000); // 等待60秒再尝试重新连接
+                                Thread.sleep(30000);
                             } catch (InterruptedException ie) {
                                 ie.printStackTrace();
                             }
